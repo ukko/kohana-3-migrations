@@ -13,7 +13,7 @@
 
 		public function __destruct () {
 			fclose( $this->stdout );
-            exit;
+			exit;
 		}
 
 		public function out ( $line = "\n" ) {
