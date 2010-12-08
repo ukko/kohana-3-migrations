@@ -1,7 +1,7 @@
-<?php 
+<?php
 Route::set('migrations', 'migrations(/<action>(/<id>))',
     array(
-        'action'    => '(index|up|down)',
+        'action'    => '(index|status|up|down)',
         'id'        => '\d+',
     ))->defaults(array(
         'controller'=> 'migrations',
