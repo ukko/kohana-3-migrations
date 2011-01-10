@@ -2,33 +2,26 @@
 
 class Controller_Migrations extends Controller
 {
-	const DELIMITER = "===================================================================\n\n";
-	const ERROR		= 0;
-	const SUCCESS	= 1;
+	/**
+	 * Migrations object
+	 * @var Migrations
+	 */
+	protected $_migrations;
 
+	/**
+	 * Console object
+	 * @var Console
+	 */
+	protected $_console;
 
+	/**
+	 * Constructor
+	 */
 	public function __construct()
 	{
-		// Command line access ONLY
-		if ('cli' != PHP_SAPI) {
-			die('oops');
-			url::redirect('/');
-		}
-		$this->stdout = fopen('php://stdout', 'w');
-		$this->out("\n=======================[ Kohana Migrations ]=======================\n\n");
-		$this->migrations = new Migrations();
-	}
-
-	public function __destruct()
-	{
-		fclose($this->stdout);
-		exit;
-	}
-
-	public function out($line = "\n")
-	{
-		fwrite($this->stdout, $line);
-		fflush($this->stdout);
+		$this->_console = Console::instance();
+		$this->_console->out(Console::format("Kohana Migrations", Console::HEADER));
+		$this->_migrations = new Migrations('default', $this->_console);
 	}
 
 	/**
@@ -37,17 +30,30 @@ class Controller_Migrations extends Controller
 	public function action_index()
 	{
 		$this->_print_status();
-		$this->out();
-		$this->out(self::DELIMITER);
+		$this->_console->out_line();
 	}
 
 	/**
 	 * Alias for display status
-	 * @return type
 	 */
 	public function action_status()
 	{
 		return $this->action_index();
+	}
+
+	/**
+	 * Display migrations list
+	 */
+	public function action_list()
+	{
+		foreach ($this->_migrations->get_migrations() as $migration) {
+			if ($migration->version == $this->_migrations->get_schema_version()) {
+				$this->_console->out($migration->version."*\t".Console::format($migration->descr, Console::SUCCESS));
+			} else {
+				$this->_console->out($migration->version."\t".$migration->descr);
+			}
+		}
+		$this->_console->out_line();
 	}
 
 	/**
@@ -56,7 +62,10 @@ class Controller_Migrations extends Controller
 	 */
 	public function action_up($version = null)
 	{
-		$this->_migrate($version);
+		if ($version == 'all') {
+			$version = $this->_migrations->last_schema_version();
+		}
+		$this->_migrate($version, Migrations::UP);
 	}
 
 	/**
@@ -65,69 +74,55 @@ class Controller_Migrations extends Controller
 	 */
 	public function action_down($version = null)
 	{
-		$this->_migrate($version, true);
+		$this->_migrate($version, Migrations::DOWN);
 	}
 
-	protected function _migrate($version, $down = false)
+	protected function _migrate($version, $direction = Migrations::UP)
 	{
 		if (is_null($version)) {
-			$version = $this->migrations->get_schema_version();
+			$version = (int)$this->_migrations->get_schema_version();
 
-			$version = $down ? --$version : ++$version;
+			$version = $direction ? ++$version : --$version;
+		} else {
+			$version = (int)$version;
 		}
 
-		$current_version = $this->migrations->get_schema_version();
-		$last_version = $this->migrations->last_schema_version();
+		$current_version = $this->_migrations->get_schema_version();
+		$last_version = $this->_migrations->last_schema_version();
 
-		$direction = ( $down ) ? 'DOWN' : 'UP';
-
-		$this->_print_status('Migrate');
-
-		$out = PHP_EOL . PHP_EOL . self::DELIMITER . PHP_EOL;
-		$out .= "  Requested Migration: $version" . PHP_EOL . "            Migrating: $direction";
-		$out .= PHP_EOL . self::DELIMITER;
-		$this->out($out);
+		$out  = "\tRequested Migration:\t" . $version . PHP_EOL;
+		$out .= "\tMigrating:\t\t" . (($direction) ? 'UP' : 'DOWN') . PHP_EOL;
+		$this->_console->out($out);
 
 		if ($version > $last_version OR $version < 0) {
-			return $this->out($this->color("\tMigration not found", self::ERROR) . PHP_EOL . PHP_EOL . self::DELIMITER);
+			return $this->_console->out(Console::format("\tMigration not found".PHP_EOL, Console::ERROR));
 		}
 
-
-		if ($down) {
+		if ( ! $direction) {
 			if ($version >= $current_version) {
-				$this->out($this->color("  Nothing To Do!", self::ERROR));
+				return $this->_console->out(Console::format("\tNothing To Do!".PHP_EOL, Console::ERROR));
 			} else {
-				$this->migrations->migrate($this, $current_version, $version);
+				$this->_migrations->migrate($current_version, $version);
 			}
 		} else {
 			if ($version <= $current_version) {
-				$this->out($this->color("  Nothing To Do!", self::ERROR));
+				return $this->_console->out(Console::format("\tNothing To Do!".PHP_EOL, Console::ERROR));
 			} else {
-				$this->migrations->migrate($this, $current_version, $version);
+				$this->_migrations->migrate($current_version, $version);
 			}
 		}
-		$this->out(PHP_EOL . PHP_EOL . self::DELIMITER);
+
+		$this->_console->out_line();
 		$this->_print_status();
-		$this->out(PHP_EOL . self::DELIMITER);
+		$this->_console->out_line();
 	}
-
-	protected function color($text, $type)
-	{
-		if ($type == self::ERROR) {
-			return "\033[01;38;5;160m" . $text . "\033[39m";
-		} elseif ($type == self::SUCCESS) {
-
-		}
-	}
-
 
 	protected function _print_status()
 	{
-		$current_version = $this->migrations->get_schema_version();
-		$last_version = $this->migrations->last_schema_version();
-		$out = "    Current Migration: $current_version" . PHP_EOL;
-		$out .= "     Latest Migration: $last_version" . PHP_EOL;
-		$this->out($out);
+		$out = "\tCurrent:\t\t" . $this->_migrations->get_schema_version() . PHP_EOL;
+		$out .= "\tLatest:\t\t\t" . $this->_migrations->last_schema_version() . PHP_EOL;
+
+		Console::instance()->out($out);
 	}
 
 }

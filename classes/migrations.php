@@ -1,125 +1,212 @@
-<?php
+<?php defined('SYSPATH') or die('No direct script access.');
 
-	class Migrations {
+class Migrations
+{
+	const DOWN	= 0;
+	const UP	= 1;
 
-		protected $config;
-		protected $group;
+	protected $config;
+	protected $group;
 
-		public function __construct( $group = 'default' ) {
-			$this->config = Kohana::config( 'migrations' );
-			$this->group  = $group;
-			$this->config['path'] = $this->config['path'][$group];
-			$this->config['info'] = $this->config['path'] . $this->config['info'] . '/';
+	/**
+	 * Console object
+	 *
+	 * @var Console
+	 */
+	protected $_console		= NULL;
+
+	/**
+	 * Array with Migrations_Item
+	 *
+	 * @var array
+	 */
+	protected $_migrations	= NULL;
+
+
+	/**
+	 * Constructor method
+	 *
+	 * @param type $group
+	 * @return bool
+	 */
+	public function __construct($group = 'default', $console = NULL)
+	{
+		$this->_console			= $console;
+		$this->config			= Kohana::config('migrations');
+		$this->group			= $group;
+		$this->config['path']	= $this->config['path'][$group];
+		$this->config['info']	= $this->config['path'] . $this->config['info'] . '/';
+	}
+
+	/**
+	 * Return current number version or set 0
+	 *
+	 * @return int N$thisumber schema version
+	 */
+	public function get_schema_version()
+	{
+		if ( ! is_dir($this->config['path'])) {
+			mkdir($this->config['path']);
 		}
 
-		public function get_schema_version () {
-			if( ! is_dir( $this->config['path'] ) )
-				mkdir( $this->config['path'] );
+		if ( ! is_dir($this->config['info'])) {
+			mkdir($this->config['info']);
+		}
 
-			if ( ! is_dir( $this->config['info'] ) )
-				mkdir( $this->config['info'] );
-
-			if ( ! file_exists( $this->config['info'] . 'version' ) ) {
-				$fversion = fopen( $this->config['info'] . 'version', 'w' );
-				fwrite( $fversion, '0' );
-				fclose( $fversion );
-				return 0;
-			}
-			else {
-				$fversion = fopen( $this->config['info'] . 'version','r' );
-				$version = fread( $fversion, 11 );
-				fclose( $fversion );
-				return $version;
-			}
+		if ( ! file_exists($this->config['info'] . 'version')) {
+			$fversion = fopen($this->config['info'] . 'version', 'w');
+			fwrite($fversion, '0');
+			fclose($fversion);
 			return 0;
+		} else {
+			$fversion = fopen($this->config['info'] . 'version', 'r');
+			$version = fread($fversion, 11);
+			fclose($fversion);
+			return (int) $version;
+		}
+		return 0;
+	}
+
+	/**
+	 * Set current number version
+	 *
+	 * @param int $version
+	 * @return void
+	 */
+	public function set_schema_version($version)
+	{
+		$fversion = fopen($this->config['info'] . 'version', 'w');
+		fwrite($fversion, $version);
+		fclose($fversion);
+	}
+
+	/**
+	 * Get last nubmer version
+	 *
+	 * @return int
+	 */
+	public function last_schema_version()
+	{
+		if (is_null($this->_migrations)) {
+			$this->_migrations = $this->get_migrations();
 		}
 
-		public function set_schema_version ( $version ) {
-			$fversion = fopen( $this->config['info'] . 'version', 'w' );
-			fwrite( $fversion, $version );
-			fclose( $fversion );
-		}
+		return $this->_migrations[count($this->_migrations)]->version;
+	}
 
-		public function last_schema_version () {
-			$migrations = $this->get_up_migrations();
-			end( $migrations );
-			return key( $migrations );
-		}
+	/**
+	 * Return array with migrations sorted by direction
+	 *
+	 * @return array
+	 */
+	public function get_migrations()
+	{
+		$migrations = scandir($this->config['path']);
+		$items		= array();
 
-		public function get_up_migrations () {
-			$migrations = glob( $this->config['path'] . '*UP.sql' );
-			$actual_migrations = array();
-			foreach ( $migrations as $i => $file ) {
-				$name = basename( $file, '.sql' );
-				$matches = array();
-				if ( preg_match( '/^(\d{3})_(\w+)$/', $name, $matches ) )
-					$actual_migrations[intval( $matches[1] )] = $file;
+		foreach ($migrations as $file) {
+			list ($name, $ext) = explode('.', $file);
+
+			if (strtolower($ext) == 'sql') {
+				$version = intval($name);
+				$items[$version] = $this->_get_migrations_content($file, $version);
 			}
-			return $actual_migrations;
 		}
+		return $items;
+	}
 
-		public function get_down_migrations () {
-			$migrations = glob( $this->config['path'] . '*DOWN.sql' );
-			$actual_migrations = array();
-			foreach ( $migrations as $i => $file ) {
-				$name = basename( $file, '.sql' );
-				$matches = array();
-				if ( preg_match( '/^(\d{3})_(\w+)$/', $name, $matches ) )
-					$actual_migrations[intval( $matches[1] )] = $file;
-			}
-
-			return $actual_migrations;
-		}
-
-		public function migrate ( &$controller, $from, $to ) {
-			if( $from < $to ) {
-				$migrations = $this->get_up_migrations();
-				foreach( $migrations as $index => $migration )
-					if( $index > $from and $index <= $to ) {
-						try {
-							$controller->out( $this->run_migration( $migration ) );
-							$this->set_schema_version( $index );
-						}
-						catch( Exception $e ) {
-							$controller->out( "Error running migration $index UP: " . $e->getMessage() . "\n" );
-							break;
-						}
+	/**
+	 *
+	 * @param type $from
+	 * @param type $to
+	 */
+	public function migrate($from, $to)
+	{
+		$migrations = $this->get_migrations();
+		if ($from < $to) {
+			foreach ($migrations as $index => $migration)
+				if ($index > $from and $index <= $to) {
+					try {
+						$this->_console->out($this->run_migration($migration, self::UP));
+						$this->set_schema_version($index);
+					} catch (Exception $e) {
+						$error = "Error running migration ".$index." UP: ".$e->getMessage().PHP_EOL;
+						$this->_console->out(Console::format($error, Console::ERROR));
 					}
-			}
-			else {
-				$migrations = $this->get_down_migrations();
-				$item = end( $migrations );
-				while( false !== $item ) {
-					$index = key( $migrations );
-					if( $index <= $from and $index > $to ) {
-						try {
-							$controller->out( $this->run_migration( $item ) );
-							$this->set_schema_version( $index - 1 );
-						}
-						catch( Exception $e ) {
-							$controller->out( "Error running migration $index DOWN: " . $e->getMessage() . "\n" );
-							break;
-						}
-					}
-					$item = prev( $migrations );
+				}
+		} else {
+			for ($index = $from; $index > $to; $index--) {
+				try {
+					$this->_console->out($this->run_migration($migrations[$index], self::DOWN));
+					$this->set_schema_version($index - 1);
+				} catch (Exception $e) {
+					$error = "Error running migration ".$index." DOWN: ".$e->getMessage().PHP_EOL;
+					$this->_console->out(Console::format($error, Console::ERROR));
 				}
 			}
-		} // migrate
+		}
+	}
 
-		public function run_migration ( $file ) {
+	/**
+	 * Run exequte RAW SQL query
+	 *
+	 * @param Migrations_Item	$migration
+	 * @param int				$direction	self::UP || self::DOWN
+	 * @return type
+	 */
+	public function run_migration($migration, $direction = self::UP)
+	{
+		$queries = explode(';', ($direction == self::UP) ? $migration->up : $migration->down);
 
-			$contents = file_get_contents( $file );
-			$queries = explode( ';', $contents );
+		$db = Database::instance($this->group);
 
-			$db = Database::instance( $this->group );
-
-			foreach( $queries as $query ) {
-				$query = trim( $query );
-				if( empty( $query ) ) { continue; }
-				$db->query( Database::UPDATE, $query, false );
+		foreach ($queries as $query) {
+			$query = trim($query);
+			if (empty($query)) {
+				continue;
 			}
-
-			return "Migrated: " . basename( $file ) . "\n";
+			$db->query(Database::UPDATE, $query, false);
 		}
 
+		return "Migrated: ".Console::format($migration->filename, Console::SUCCESS)." ".$migration->descr;
 	}
+
+	/**
+	 * Fill data Migrations_Item
+	 *
+	 * @param string	$file
+	 * @param int		$version
+	 * @return Migrations_Item
+	 */
+	private function _get_migrations_content($file, $version)
+	{
+		$lines	= explode(PHP_EOL, file_get_contents($this->config['path'] . $file));
+		$flag	= NULL;
+		$descr	= '';
+		$up		= '';
+		$down	= '';
+
+		foreach ($lines as $line) {
+			// Comments
+			if (substr($line, 0, 2) == '--') {
+				$comment = trim(substr($line, 2));
+				if (stristr($comment, 'UP')) {
+					$flag = self::UP;
+				}elseif (stristr($comment, 'DOWN')) {
+					$flag = self::DOWN;
+				} elseif ($flag === NULL) {
+					$descr .= $comment . PHP_EOL;
+				}
+			// SQL query
+			} else {
+				if ($flag === self::UP) {
+					$up	.= $line . PHP_EOL;
+				} elseif ($flag === self::DOWN) {
+					$down .= $line . PHP_EOL;
+				}
+			}
+		}
+		return new Migrations_Item($version, $file, $up, $down, $descr);
+	}
+
+}
