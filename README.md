@@ -90,6 +90,17 @@ Then you can run them from the command line:
 	    Current:		        0
 	    Latest:			        7
     ================================================================================
+    
+## Example SQL File
+
+    -- Table `price` add field `spec`
+
+    --UP
+    ALTER TABLE `goods_price`
+        ADD COLUMN `spec` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0 AFTER `date`;
+
+    -- DOWN
+    ALTER TABLE `goods_price` DROP COLUMN `spec`;
 
 # License
 
