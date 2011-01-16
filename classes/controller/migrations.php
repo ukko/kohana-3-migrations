@@ -34,18 +34,11 @@ class Controller_Migrations extends Controller
 	}
 
 	/**
-	 * Alias for display status
+	 * Display migrations list & status
 	 */
 	public function action_status()
 	{
-		return $this->action_index();
-	}
-
-	/**
-	 * Display migrations list
-	 */
-	public function action_list()
-	{
+		$this->_console->out();
 		foreach ($this->_migrations->get_migrations() as $migration) {
 			if ($migration->version == $this->_migrations->get_schema_version()) {
 				$this->_console->out($migration->version."*\t".Console::format($migration->descr, Console::SUCCESS));
@@ -53,7 +46,10 @@ class Controller_Migrations extends Controller
 				$this->_console->out($migration->version."\t".$migration->descr);
 			}
 		}
+		$this->_console->out();
 		$this->_console->out_line();
+
+		return $this->action_index();
 	}
 
 	/**
@@ -97,6 +93,8 @@ class Controller_Migrations extends Controller
 		if ($version > $last_version OR $version < 0) {
 			return $this->_console->out(Console::format("\tMigration not found".PHP_EOL, Console::ERROR));
 		}
+
+		$this->_console->out_line('-');
 
 		if ( ! $direction) {
 			if ($version >= $current_version) {

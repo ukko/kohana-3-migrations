@@ -2,99 +2,98 @@
 
 This Kohana module provides simple migrations from the command line for SQL compliant databases.
 
-It is a K3 port of http://github.com/jmhobbs/kohana-2-migrations
+# Warning
+Migration module depends on module Console, so you must first install and connect the module Console
+https://github.com/ukko/kohana-3-console
 
 # Using
 
 Create a folder named "migrations" in your application folder.  This directory must be writable, or must contain a directory called ".info" which is writable.
 
-Put valid SQL files in that folder, following the naming patterns: 001_ANYTHING_HERE_UP.sql & 001_ANYTHING_HERE_DOWN.sql
+Put valid SQL files in that folder, following the naming patterns: 001.sql, 002.sql, etc.
 
 For example:
 
-	001_Auth_DOWN.sql
-	001_Auth_UP.sql
-	002_Users_DOWN.sql
-	002_Users_UP.sql
-	003_Island_DOWN.sql
-	003_Island_UP.sql
-	004_Pages_DOWN.sql
-	004_Pages_UP.sql
+	001.sql
+	002.sql
+	003.sql
+	004.sql
 
 Now add this module to your application/bootstrap.php file.
 
+    'migrations'    => MODPATH . 'migrations',
+
 Then you can run them from the command line:
 
-## Status
+## State
 
-	jmhobbs@katya:/var/www/qaargh$ php5 index.php --uri=migrations
+	cd /www/kohana
+	./cli migrations
+    or
+    ./cli migrations/index  
+   
+    ============================ [ Kohana Migrations ] =============================
+	    Current:		7
+	    Latest:			7
+    ================================================================================
 
-	=======================[ Kohana Migrations ]=======================
+## Status full
 
-	    Current Migration: 7
-	     Latest Migration: 7
+    ./cli migrations/status
+    ============================ [ Kohana Migrations ] =============================
 
-	===================================================================
+    1	Initial struct DB
+    2	Fixtures
+    3*	Table `price` add field `spec`
+    4	Table `credit` add field `accepted`
+    5	Table `providers` add fields `payment` и `garant`
+    6	Table `good_price` add field `availability`
+    7	Table `provider_store` add field `image`
 
+    ================================================================================
+	    Current:		0
+	    Latest:			7
+    ================================================================================
 
 ## Up
 
-	jmhobbs@katya:/var/www/qaargh$ php5 index.php --uri=migrations/up/3
+	./cli migrations/up/7
+	or
+	./cli migrations/up/all
+	
+	all = latest number of migration
 
-	=======================[ Kohana Migrations ]=======================
-
-	   Current Migration: 0
-	    Latest Migration: 7
-
-	===================================================================
-
-	  Requested Migration: 3
-	            Migrating: UP
-
-	===================================================================
-
-	Migrated: 001_Auth_UP.sql
-	Migrated: 002_Users_UP.sql
-	Migrated: 003_Island_UP.sql
-
-	===================================================================
-
-	    Current Migration: 3
-	     Latest Migration: 7
-
-	===================================================================
-
-
+    ./cli migrations/up/3
+    ============================ [ Kohana Migrations ] =============================
+	    Requested Migration:	3
+	    Migrating:		        UP
+    --------------------------------------------------------------------------------
+    Migrated: 001.sql Initial struct DB
+    Migrated: 002.sql Fixtures
+    Migrated: 003.sql Table `price` add field `spec`
+    ================================================================================
+	    Current:		        3
+	    Latest:			        7
+    ================================================================================
+    
 ## Down
 
-	jmhobbs@katya:/var/www/qaargh$ php5 index.php --uri=migrations/down/0
-
-	=======================[ Kohana Migrations ]=======================
-
-	    Current Migration: 3
-	     Latest Migration: 7
-
-	===================================================================
-
-	  Requested Migration: 0
-	            Migrating: DOWN
-
-	===================================================================
-
-	Migrated: 003_Island_DOWN.sql
-	Migrated: 002_Users_DOWN.sql
-	Migrated: 001_Auth_DOWN.sql
-
-	===================================================================
-
-	    Current Migration: 0
-	     Latest Migration: 7
-
-	===================================================================
+    ./cli migrations/down/0  
+	============================ [ Kohana Migrations ] =============================
+	    Requested Migration:	0
+	    Migrating:		        DOWN
+    --------------------------------------------------------------------------------
+    Migrated: 003.sql Table `price` add field `spec`
+    Migrated: 002.sql Fixtures
+    Migrated: 001.sql Initial struct DB
+    ================================================================================
+	    Current:		        0
+	    Latest:			        7
+    ================================================================================
 
 # License
 
-	Copyright (c) 2010 John Hobbs
+	Copyright (c) 2011 Max Kamashev
 
 	Permission is hereby granted, free of charge, to any person obtaining a copy
 	of this software and associated documentation files (the "Software"), to deal
@@ -116,4 +115,5 @@ Then you can run them from the command line:
 
 # Inspiration
 
-Inspiration and base code from https://code.google.com/p/kohana-migrations/
+Inspiration and base code John Hobbs from https://github.com/jmhobbs/kohana-3-migrations 
+and https://code.google.com/p/kohana-migrations/ 
