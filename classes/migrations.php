@@ -32,7 +32,7 @@ class Migrations
 	public function __construct($group = 'default', $console = NULL)
 	{
 		$this->_console			= $console;
-		$this->config			= Kohana::config('migrations');
+		$this->config			= Kohana::$config->load('migrations');
 		$this->group			= $group;
 		$this->config['path']	= $this->config['path'][$group];
 		$this->config['info']	= $this->config['path'] . $this->config['info'] . '/';
