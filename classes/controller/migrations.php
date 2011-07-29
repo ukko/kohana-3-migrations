@@ -17,8 +17,9 @@ class Controller_Migrations extends Controller
 	/**
 	 * Constructor
 	 */
-	public function __construct()
+	public function before()
 	{
+		parent::before();
 		$this->_console = Console::instance();
 		$this->_console->out(Console::format("Kohana Migrations", Console::HEADER));
 		$this->_migrations = new Migrations('default', $this->_console);
