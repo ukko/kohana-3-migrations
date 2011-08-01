@@ -17,8 +17,9 @@ class Controller_Migrations extends Controller
 	/**
 	 * Constructor
 	 */
-	public function __construct()
+	public function before()
 	{
+		parent::before();
 		$this->_console = Console::instance();
 		$this->_console->out(Console::format("Kohana Migrations", Console::HEADER));
 		$this->_migrations = new Migrations('default', $this->_console);
@@ -54,10 +55,10 @@ class Controller_Migrations extends Controller
 
 	/**
 	 * Increase on one or an specified number
-	 * @param int $version
 	 */
-	public function action_up($version = null)
+	public function action_up()
 	{
+		$version = $this->request->param('id', null);
 		if ($version == 'all') {
 			$version = $this->_migrations->last_schema_version();
 		}
@@ -66,10 +67,10 @@ class Controller_Migrations extends Controller
 
 	/**
 	 * Decrease on one or an specified number
-	 * @param int $version
 	 */
-	public function action_down($version = null)
+	public function action_down()
 	{
+		$version = $this->request->param('id', null);
 		$this->_migrate($version, Migrations::DOWN);
 	}
 
